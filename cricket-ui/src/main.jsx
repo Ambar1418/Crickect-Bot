@@ -5,10 +5,14 @@ import App from './App.jsx'
 
 // Register Service Worker (PWA)
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/service-worker.js")
-    .then(() => console.log("SW registered"))
-    .catch(err => console.log("SW register failed", err));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then(() => console.log("SW registered"))
+      .catch((err) => console.log("SW registration failed", err));
+  });
 }
+
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
