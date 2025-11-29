@@ -11,9 +11,10 @@ function App() {
     setChat((prev) => [...prev, { sender: "user", text: message }]);
 
     try {
-      const res = await axios.post("http://127.0.0.1:8000/chat", {
-        message,
-      });
+     const res = await axios.post("https://crickect-bot-newone.onrender.com/chat", {
+    message
+});
+
 
       const botReply = res.data.answer;
       setChat((prev) => [...prev, { sender: "bot", text: botReply }]);
