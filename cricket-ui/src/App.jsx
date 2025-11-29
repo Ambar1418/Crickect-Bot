@@ -11,22 +11,34 @@ function App() {
     setChat((prev) => [...prev, { sender: "user", text: message }]);
 
     try {
-     const res = await axios.post("https://crickect-bot-newone.onrender.com/chat", {
-    message
-});
+      const res = await axios.post(
+        "https://crickect-bot-newone.onrender.com/chat",
+        { message },
+        { withCredentials: false }
+      );
 
+      const botReply =
+        res.data && typeof res.data.answer === "string"
+          ? res.data.answer
+          : "⚠️ No valid response received.";
 
-      const botReply = res.data.answer;
       setChat((prev) => [...prev, { sender: "bot", text: botReply }]);
-    } catch (err) {
+    } catch (error) {
+      console.error("Frontend Error:", error);
+
       setChat((prev) => [
         ...prev,
-        { sender: "bot", text: err },
+        {
+          sender: "bot",
+          text: `⚠️ Server error: ${error?.message || "Unknown issue"
+            }`
+        }
       ]);
     }
 
     setMessage("");
   };
+
 
   return (
     <div
@@ -86,7 +98,7 @@ function App() {
                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
               }}
             >
-              {msg.text}
+              {String(msg.text || "⚠️ No response")}
             </div>
           </div>
         ))}
