@@ -6,48 +6,60 @@ import os
 from dotenv import load_dotenv
 import pandas as pd
 
-# Load env variables
+# ---------------------------
+#  ENVIRONMENT + API SETUP
+# ---------------------------
 load_dotenv()
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Load Kohli dataset
+# ---------------------------
+#  LOAD ALL CSV FILES
+# ---------------------------
+"""
+This block automatically loads EVERY .csv file inside your project folder.
+You don't need to manually load each file.
+
+All files are stored in:  csv_data = { "filename.csv": dataframe }
+"""
+
+csv_data = {}
+
+for file in os.listdir():
+    if file.endswith(".csv"):
+        try:
+            df = pd.read_csv(file)
+            csv_data[file] = df
+            print(f"Loaded: {file}  ({df.shape[0]} rows)")
+        except Exception as e:
+            print(f"❌ Error loading {file}:", e)
+
+# ---------------------------
+#  LOAD KOHLI DATA EXPLICITLY
+# ---------------------------
 vk_data = pd.read_csv("vkdata.csv")
 
-# ---------- CLEAN THE CSV DATA ----------
-vk_data["Against"] = (
-    vk_data["Against"]
-    .astype(str)
-    .str.replace("\xa0", " ", regex=False)
-    .str.strip()
-    .str.lower()
-)
+# Clean Kohli dataset
+vk_data["Against"] = vk_data["Against"].astype(str).str.replace("\xa0"," ").str.strip().str.lower()
+vk_data["Venue"] = vk_data["Venue"].astype(str).str.replace("\xa0"," ").str.strip().str.lower()
+vk_data["Date"] = vk_data["Date"].astype(str)
+vk_data["Runs"] = vk_data["Runs"].astype(str)
 
-vk_data["Venue"] = (
-    vk_data["Venue"]
-    .astype(str)
-    .str.replace("\xa0", " ", regex=False)
-    .str.strip()
-    .str.lower()
-)
-
-vk_data["Date"] = vk_data["Date"].astype(str).str.strip()
-vk_data["Runs"] = vk_data["Runs"].astype(str).str.strip()
-
-# Load cricket facts module
+# ---------------------------
+#  IMPORT CRICKET FACT FUNCTIONS
+# ---------------------------
 from cricket_facts import (
     get_world_cup_winner,
     get_t20_winner,
     get_champions_trophy_winner,
     get_stadium_location,
-    get_top_run_scorer
+    get_top_run_scorer,
 )
 
-# Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-# FastAPI app
+# ---------------------------
+#  FASTAPI SETUP
+# ---------------------------
 app = FastAPI()
 
-# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -56,54 +68,78 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request model
 class ChatRequest(BaseModel):
     message: str
 
 
-# -------------------------
-#  KOHLI DATASET FUNCTIONS
-# -------------------------
+# ======================================================
+#                UNIVERSAL CSV SEARCH ENGINE
+# ======================================================
+"""
+This function searches ALL CSV files for any keyword.
+Useful for:
+- player stats
+- bowling stats
+- batting records
+- match info
+- ball-by-ball data
+- team info
+
+If ANY CSV contains the keyword, it returns the matched rows.
+"""
+
+def search_in_all_csvs(query):
+    query = str(query).lower()
+    results = []
+
+    for filename, df in csv_data.items():
+        for col in df.columns:
+            try:
+                matches = df[df[col].astype(str).str.contains(query, case=False, na=False)]
+                if not matches.empty:
+                    results.append((filename, matches.head(5)))
+            except:
+                pass
+
+    return results
+
+
+
+# ======================================================
+#                KOHLI CUSTOM FUNCTIONS
+# ======================================================
 
 def kohli_runs_against(team):
-    team = team.lower().strip().strip("?.,! ")
+    team = team.lower().strip()
 
     df = vk_data[vk_data["Against"] == team]
     if df.empty:
         return None
 
-    runs_col = (
-        df["Runs"]
-        .astype(str)
-        .str.extract(r"(\d+)")
-        [0]
-        .astype(float)
-    )
-
-    total = int(runs_col.sum())
+    runs = df["Runs"].str.extract(r"(\d+)")[0].astype(float)
+    total = int(runs.sum())
     return f"Virat Kohli has scored {total} runs against {team.title()}."
 
 
 def kohli_highest_score():
-    numeric_runs = vk_data["Runs"].str.extract(r"(\d+)").astype(float)
-    max_score = int(numeric_runs.max()[0])
+    numeric = vk_data["Runs"].str.extract(r"(\d+)").astype(float)
+    max_score = int(numeric.max()[0])
     return f"Virat Kohli's highest score is {max_score}."
 
 
 def kohli_centuries():
-    numeric_runs = vk_data["Runs"].str.extract(r"(\d+)").astype(float)
-    centuries = (numeric_runs >= 100).sum()[0]
-    return f"Virat Kohli has scored {centuries} centuries in this dataset."
+    numeric = vk_data["Runs"].str.extract(r"(\d+)").astype(float)
+    count = (numeric >= 100).sum()[0]
+    return f"Virat Kohli has scored {count} centuries in this dataset."
 
 
 def kohli_runs_at_venue(venue):
-    import re
-    venue = re.sub(r"[^a-zA-Z0-9\s]", "", venue.lower()).strip()
+    venue = venue.lower().strip()
+    df = vk_data[vk_data["Venue"].str.contains(venue)]
 
-    df = vk_data[vk_data["Venue"].str.contains(venue, case=False)]
     if df.empty:
         return None
-
+    
     total = int(df["Runs"].str.extract(r"(\d+)")[0].astype(float).sum())
     return f"Virat Kohli has scored {total} runs at {venue.title()}."
 
@@ -117,129 +153,111 @@ def kohli_runs_in_year(year):
     return f"Virat Kohli scored {total} runs in {year}."
 
 
-# ---------------------------------
-#         MAIN CHAT ENDPOINT
-# ---------------------------------
+
+# ======================================================
+#                    MAIN CHAT LOGIC
+# ======================================================
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
     user_msg = req.message.lower().strip()
 
-    try:
-        # -----------------------------------------
-        # 1. Prevent NON-cricket questions
-        # -----------------------------------------
-        non_cricket_keywords = ["python", "java", "movie", "weather", "code", "program"]
-        if any(word in user_msg for word in non_cricket_keywords):
-            return {"answer": "I can only answer cricket-related questions."}
+    # ------------------------------------------
+    # 0. Reject non-cricket questions
+    # ------------------------------------------
 
-        # -----------------------------------------
-        # 2. Check rule-based cricket facts
-        # -----------------------------------------
-
-        # ODI World Cup
-        for year in range(1975, 2030):
-            if str(year) in user_msg and "world cup" in user_msg:
-                wc = get_world_cup_winner(year)
-                if wc:
-                    return {"answer": wc}
-
-        # T20 World Cup
-        for year in range(2007, 2030):
-            if str(year) in user_msg and "t20" in user_msg:
-                t20 = get_t20_winner(year)
-                if t20:
-                    return {"answer": t20}
-
-        # Champions Trophy
-        for year in range(1998, 2030):
-            if str(year) in user_msg and "champions trophy" in user_msg:
-                ct = get_champions_trophy_winner(year)
-                if ct:
-                    return {"answer": ct}
-
-        # Stadium location
-        stadium = get_stadium_location(user_msg)
-        if stadium:
-            return {"answer": stadium}
-
-        # Runs by player
-        for p in ["sachin", "ponting", "kumar", "mahela", "kohli"]:
-            if p in user_msg and "runs" in user_msg:
-                runs = get_top_run_scorer(p)
-                if runs:
-                    return {"answer": runs}
-
-        # -----------------------------------------
-        # 3. Kohli dataset query detection
-        # -----------------------------------------
-
-        teams = [
-            "australia", "england", "pakistan", "south africa", "new zealand",
-            "sri lanka", "bangladesh", "west indies", "zimbabwe", "afghanistan"
-        ]
-
-        # Kohli runs vs team
-        if "kohli" in user_msg and ("run" in user_msg or "score" in user_msg):
-            for t in teams:
-                if t in user_msg:
-                    result = kohli_runs_against(t)
-                    if result:
-                        return {"answer": result}
-
-        # Highest score
-        if "kohli" in user_msg and "highest" in user_msg:
-            return {"answer": kohli_highest_score()}
-
-        # Centuries
-        if "century" in user_msg or "centuries" in user_msg:
-            return {"answer": kohli_centuries()}
-
-        # Venue
-        if "kohli" in user_msg and "at" in user_msg:
-            venue = user_msg.split("at")[-1].strip()
-            result = kohli_runs_at_venue(venue)
-            if result:
-                return {"answer": result}
-            
-        
-
-        # Year
-        if "kohli" in user_msg:
-            for y in range(2000, 2030):
-                if str(y) in user_msg:
-                    ans = kohli_runs_in_year(y)
-                    if ans:
-                        return {"answer": ans}
-                    
-
-        # -----------------------------------------
-        # 4. FALLBACK → Groq LLM
-        # -----------------------------------------
-
-        system_prompt = """
-        You are CricketBot, a strict cricket-only expert.
-        If you are unsure, reply: "I am not sure about this cricket fact."
-        """
-
-        # BIOGRAPHY QUESTIONS (Kohli, Sachin, Dhoni, etc.)
-        # -----------------------------------------
-
-        if ("who is virat" in user_msg) or ("who is kohli" in user_msg):
-            response = client.chat.completions.create(
-                model="llama-3.3-8b-instant",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a cricket expert. Explain cricket players' biographies accurately and clearly."
-                    },
-                    {"role": "user", "content": req.message}
-                ]
-            )
-            return {"answer": response.choices[0].message.content}
+    banned = ["python", "java", "movie", "weather", "code", "program"]
+    if any(b in user_msg for b in banned):
+        return {"answer": "This chatbot is not trained for that. Please ask something related to cricket."}
 
 
-    except Exception as e:
-        print("🔥 ERROR:", e)
-        return {"answer": f"Server Error: {e}"}
+    # ------------------------------------------
+    # 1. Cricket facts (World Cup, T20, CT etc.)
+    # ------------------------------------------
+    for year in range(1975, 2030):
+        if str(year) in user_msg and "world cup" in user_msg:
+            ans = get_world_cup_winner(year)
+            if ans:
+                return {"answer": ans}
 
+    for year in range(2007, 2030):
+        if str(year) in user_msg and "t20" in user_msg:
+            ans = get_t20_winner(year)
+            if ans:
+                return {"answer": ans}
+
+    for year in range(1998, 2030):
+        if str(year) in user_msg and "champions trophy" in user_msg:
+            ans = get_champions_trophy_winner(year)
+            if ans:
+                return {"answer": ans}
+
+    stadium = get_stadium_location(user_msg)
+    if stadium:
+        return {"answer": stadium}
+
+
+    # ------------------------------------------
+    # 2. Kohli dataset detection
+    # ------------------------------------------
+    teams = ["australia","england","pakistan","south africa","new zealand",
+             "sri lanka","bangladesh","west indies","zimbabwe","afghanistan"]
+
+    if "kohli" in user_msg and ("run" in user_msg or "score" in user_msg):
+        for t in teams:
+            if t in user_msg:
+                result = kohli_runs_against(t)
+                if result:
+                    return {"answer": result}
+
+    if "kohli" in user_msg and "highest" in user_msg:
+        return {"answer": kohli_highest_score()}
+
+    if "century" in user_msg or "centuries" in user_msg:
+        return {"answer": kohli_centuries()}
+
+    if "kohli" in user_msg and "at" in user_msg:
+        venue = user_msg.split("at")[-1].strip()
+        result = kohli_runs_at_venue(venue)
+        if result:
+            return {"answer": result}
+
+    for year in range(2000, 2030):
+        if str(year) in user_msg and "kohli" in user_msg:
+            ans = kohli_runs_in_year(year)
+            if ans:
+                return {"answer": ans}
+
+
+
+    # ------------------------------------------
+    # 3. UNIVERSAL CSV SEARCH BEFORE LLM
+    # ------------------------------------------
+    matches = search_in_all_csvs(user_msg)
+
+    if matches:
+        final = ""
+        for filename, df in matches:
+            final += f"\n📄 From **{filename}**:\n{df.to_string(index=False)}\n\n"
+        return {"answer": final}
+
+
+
+    # ------------------------------------------
+    # 4. FALLBACK LLM (Cricket-only prompt)
+    # ------------------------------------------
+    SYSTEM_PROMPT = """
+You are CricketBot. Only answer cricket-related questions following strict rules...
+(you can keep your existing system prompt here)
+"""
+
+    response = client.chat.completions.create(
+    model="llama-3.1-8b-instant",
+    messages=[
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": req.message}
+    ]
+    )
+
+
+    return {"answer": response.choices[0].message.content}

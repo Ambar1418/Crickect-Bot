@@ -51,7 +51,7 @@ top_run_scorers = {
     "kumar sangakkara": 28016,
     "ricky ponting": 27483,
     "mahela jayawardene": 25957,
-    "virat kohli": 26000  # can update later
+    "virat kohli": 27000  # can update later
 }
 
 # 🔥 ODI double centuries (Men)

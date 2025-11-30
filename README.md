@@ -143,7 +143,20 @@ Response Example:
 }
 
 
+✅ Now your chatbot should work from your Render URL
 
+Test it:
+
+🟢 Frontend (React) Live URL — Your chatbot UI
+
+👉 https://crickect-bot-newone-site.onrender.com/
+
+🟢 Backend (FastAPI) Live URL — API
+
+👉 https://crickect-bot-newone.onrender.com/chat
+
+
+(Post request only)
 
 
 
