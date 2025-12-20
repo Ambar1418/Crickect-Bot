@@ -247,9 +247,17 @@ async def chat(req: ChatRequest):
     # 4. FALLBACK LLM (Cricket-only prompt)
     # ------------------------------------------
     SYSTEM_PROMPT = """
-You are CricketBot. Only answer cricket-related questions following strict rules...
-(you can keep your existing system prompt here)
+You are VK Bot, an intelligent and friendly cricket assistant.
+
+Instructions:
+- Primarily answer cricket-related questions.
+- If a question is partially related to cricket, try to answer it using your best judgment.
+- If the question is unclear, ask a short clarifying question instead of refusing.
+- Never refuse the same query repeatedly.
+- If unsure, provide the closest relevant cricket information.
+- Be confident, helpful, and concise in your replies.
 """
+
 
     response = client.chat.completions.create(
     model="llama-3.1-8b-instant",
