@@ -1,130 +1,84 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import axios from "axios";
 
 function App() {
-  // USER STATE
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("vk-user");
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  // CHAT STATE
-  const [message, setMessage] = useState("");
-  const [chat, setChat] = useState([]);
-
-  // LOGIN FORM STATE
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
-  // LOAD USER FROM LOCAL STORAGE
-  useEffect(() => {
-    const savedUser = localStorage.getItem("vk_user");
-    if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState([]);
 
-      setChat([
-        {
-          sender: "bot",
-          text: `Hey ${parsedUser.name} 👋 How can I help you with cricket today?`,
-        },
-      ]);
-    }
-  }, []);
-
-  // HANDLE LOGIN
+  // Save user once logged in
   const handleLogin = () => {
-    if (!name || !email) {
-      alert("Please enter name and email");
-      return;
-    }
+    if (!name || !email) return alert("Please enter name & email");
 
     const userData = { name, email };
-    localStorage.setItem("vk_user", JSON.stringify(userData));
+    localStorage.setItem("vk-user", JSON.stringify(userData));
     setUser(userData);
 
     setChat([
       {
         sender: "bot",
-        text: `Hey ${name} 👋 How can I help you with cricket today?`,
+        text: `Hey ${name} 👋 How can I help you today?`,
       },
     ]);
   };
 
-  // SEND MESSAGE
   const sendMessage = async () => {
     if (!message.trim()) return;
 
-    setChat((prev) => [...prev, { sender: "user", text: message }]);
+    const userMsg = message;
+    setMessage("");
+
+    setChat((prev) => [...prev, { sender: "user", text: userMsg }]);
 
     try {
       const res = await axios.post(
         "https://crickect-bot-newone.onrender.com/chat",
-        { message },
-        { withCredentials: false }
+        { message: userMsg }
       );
 
       const botReply =
-        res.data && typeof res.data.answer === "string"
+        typeof res.data?.answer === "string"
           ? res.data.answer
-          : "⚠️ No valid response received.";
+          : "⚠️ No response from server";
 
       setChat((prev) => [...prev, { sender: "bot", text: botReply }]);
-    } catch (error) {
+    } catch (err) {
       setChat((prev) => [
         ...prev,
-        { sender: "bot", text: error.message || "⚠️ Server error occurred." },
+        { sender: "bot", text: err.message || "⚠️ Server error. Please try again." },
       ]);
     }
-
-    setMessage("");
   };
 
-  // ================= LOGIN SCREEN =================
+  /* ---------------- LOGIN SCREEN ---------------- */
   if (!user) {
     return (
-      <div
-        style={{
-          height: "100vh",
-          display: "grid",
-          placeItems: "center",
-          background: "#f6f7fb",
-          fontFamily: "Inter, sans-serif",
-        }}
-      >
-        <div
-          style={{
-            background: "#fff",
-            padding: 30,
-            borderRadius: 10,
-            width: 320,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-        >
-          <h2 style={{ textAlign: "center" }}>🏏 VK Bot</h2>
+      <div style={styles.loginWrapper}>
+        <div style={styles.loginCard}>
+          <h2>🏏 VK Bot</h2>
 
           <input
+            style={styles.input}
             placeholder="Your Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            style={{ width: "100%", padding: 10, marginBottom: 10 }}
           />
 
           <input
+            style={styles.input}
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{ width: "100%", padding: 10, marginBottom: 15 }}
           />
 
-          <button
-            onClick={handleLogin}
-            style={{
-              width: "100%",
-              padding: 10,
-              background: "#1A73E8",
-              color: "#fff",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
+          <button style={styles.button} onClick={handleLogin}>
             Continue
           </button>
         </div>
@@ -132,92 +86,155 @@ function App() {
     );
   }
 
-  // ================= CHAT SCREEN =================
+  /* ---------------- CHAT SCREEN ---------------- */
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        background: "#f6f7fb",
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
+    <div style={styles.app}>
       {/* HEADER */}
-      <div
-        style={{
-          padding: "20px",
-          background: "#1A73E8",
-          color: "white",
-          fontSize: "22px",
-          fontWeight: "700",
-          textAlign: "center",
-        }}
-      >
-        🏏 VK Bot
+      <div style={styles.header}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <img
+            src="/icons/vk-192.png" 
+            alt="VK Bot"
+            style={{ width: "36px", height: "36px", borderRadius: "50%" }}
+          />
+          <span>Hey! {user.name} 👋</span>
+        </div>
       </div>
 
+
       {/* CHAT AREA */}
-      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-        {chat.map((msg, index) => (
+      <div style={styles.chatArea}>
+        {chat.map((msg, i) => (
           <div
-            key={index}
+            key={i}
             style={{
-              marginBottom: 16,
-              display: "flex",
-              justifyContent:
-                msg.sender === "user" ? "flex-end" : "flex-start",
+              ...styles.message,
+              alignSelf: msg.sender === "user" ? "flex-end" : "flex-start",
+              background:
+                msg.sender === "user" ? "#DCF8C6" : "#2b2b2b",
+              color: msg.sender === "user" ? "#000" : "#fff",
             }}
           >
-            <div
-              style={{
-                padding: "12px 16px",
-                borderRadius: 12,
-                maxWidth: "70%",
-                background:
-                  msg.sender === "user" ? "#D4F7D4" : "rgba(0,0,0,0.75)",
-                color: msg.sender === "user" ? "#000" : "#fff",
-              }}
-            >
-              {String(msg.text)}
-            </div>
+            {msg.text}
           </div>
         ))}
       </div>
 
       {/* INPUT */}
-      <div
-        style={{
-          padding: 15,
-          display: "flex",
-          gap: 10,
-          background: "#fff",
-        }}
-      >
+      <div style={styles.inputBar}>
         <input
+          style={styles.chatInput}
+          placeholder="Ask cricket question..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ask cricket question..."
-          style={{ flex: 1, padding: 12 }}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
         />
-
-        <button
-          onClick={sendMessage}
-          style={{
-            padding: "12px 20px",
-            background: "#1A73E8",
-            color: "#fff",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
+        <button style={styles.sendBtn} onClick={sendMessage}>
           Send
         </button>
       </div>
     </div>
   );
 }
+
+/* ---------------- STYLES ---------------- */
+
+const styles = {
+  app: {
+    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    background: "#1e1e1e",
+  },
+
+  header: {
+  padding: "16px",
+  background: "#1A73E8",
+  color: "#fff",
+  fontSize: "20px",
+  fontWeight: "600",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-start",
+},
+
+
+  chatArea: {
+    flex: 1,
+    padding: "16px",
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+
+  message: {
+    maxWidth: "75%",
+    padding: "12px 16px",
+    borderRadius: "14px",
+    fontSize: "15px",
+    lineHeight: "1.4",
+  },
+
+  inputBar: {
+    display: "flex",
+    padding: "12px",
+    background: "#111",
+    gap: "10px",
+  },
+
+  chatInput: {
+    flex: 1,
+    padding: "12px",
+    borderRadius: "8px",
+    border: "none",
+    outline: "none",
+    fontSize: "15px",
+  },
+
+  sendBtn: {
+    padding: "0 20px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#1A73E8",
+    color: "#fff",
+    fontSize: "15px",
+    cursor: "pointer",
+  },
+
+  /* Login */
+  loginWrapper: {
+    height: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#f2f4f8",
+  },
+
+  loginCard: {
+    background: "#fff",
+    padding: "30px",
+    borderRadius: "10px",
+    width: "280px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+    textAlign: "center",
+  },
+
+  input: {
+    padding: "10px",
+    fontSize: "14px",
+  },
+
+  button: {
+    padding: "10px",
+    background: "#1A73E8",
+    color: "#fff",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: "6px",
+  },
+};
 
 export default App;

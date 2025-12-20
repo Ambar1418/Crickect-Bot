@@ -1,47 +1,63 @@
-import { useState } from "react";
-import axios from "axios";
+// import { useState } from "react";
+// import axios from "axios";
 
-function ChatWindow({ user }) {
-  const [message, setMessage] = useState("");
-  const [chat, setChat] = useState([
-    {
-      sender: "bot",
-      text: `Hey ${user.name} 👋 How can I help you today?`,
-    },
-  ]);
+// function ChatWindow({ user }) {
+//   const [message, setMessage] = useState("");
+//   const [chat, setChat] = useState([
+//     { sender: "bot", text: `Hey ${user.name} 👋 How can I help you today?` },
+//   ]);
 
-  const sendMessage = async () => {
-    if (!message.trim()) return;
+//   const sendMessage = async () => {
+//     if (!message.trim()) return;
 
-    setChat((c) => [...c, { sender: "user", text: message }]);
-    setMessage("");
+//     const userMsg = message;
+//     setMessage("");
+//     setChat((c) => [...c, { sender: "user", text: userMsg }]);
 
-    const res = await axios.post(
-      "https://crickect-bot-newone.onrender.com/chat",
-      { message }
-    );
+//     try {
+//       const res = await axios.post(
+//         "https://crickect-bot-newone.onrender.com/chat",
+//         { message: userMsg }
+//       );
 
-    setChat((c) => [...c, { sender: "bot", text: res.data.answer }]);
-  };
+//       setChat((c) => [
+//         ...c,
+//         { sender: "bot", text: res.data?.answer || "No response" },
+//       ]);
+//     } catch {
+//       setChat((c) => [...c, { sender: "bot", text: "⚠️ Server error" }]);
+//     }
+//   };
 
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-      <div style={{ flex: 1, padding: 20 }}>
-        {chat.map((m, i) => (
-          <div key={i} style={{ textAlign: m.sender === "user" ? "right" : "left" }}>
-            <p>{m.text}</p>
-          </div>
-        ))}
-      </div>
+//   return (
+//     <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+//       <div style={{ padding: 15, background: "#1A73E8", color: "#fff" }}>
+//         👋 Hey {user.name}
+//       </div>
 
-      <input
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        placeholder="Ask anything about cricket..."
-      />
-    </div>
-  );
-}
+//       <div style={{ flex: 1, padding: 20, overflowY: "auto" }}>
+//         {chat.map((m, i) => (
+//           <div
+//             key={i}
+//             style={{ textAlign: m.sender === "user" ? "right" : "left" }}
+//           >
+//             <p>{m.text}</p>
+//           </div>
+//         ))}
+//       </div>
 
-export default ChatWindow;
+//       <div style={{ display: "flex", padding: 10 }}>
+//         <input
+//           style={{ flex: 1 }}
+//           value={message}
+//           onChange={(e) => setMessage(e.target.value)}
+//           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+//           placeholder="Ask cricket question..."
+//         />
+//         <button onClick={sendMessage}>Send</button>
+//       </div>
+//     </div>
+//   );
+// }
+
+// export default ChatWindow;

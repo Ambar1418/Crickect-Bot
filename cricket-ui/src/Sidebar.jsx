@@ -1,12 +1,21 @@
-function Sidebar({ user }) {
-  return (
-    <div style={{ width: 260, background: "#202123", color: "#fff" }}>
-      <h3 style={{ padding: 16 }}>VK Bot</h3>
-      <p style={{ paddingLeft: 16 }}>👋 {user.name}</p>
+// function Sidebar({ user }) {
+//   return (
+//     <div
+//       style={{
+//         width: 250,
+//         background: "#202123",
+//         color: "white",
+//         padding: 15,
+//       }}
+//     >
+//       <h3>VK Bot</h3>
+//       <p>{user.email}</p>
 
-      <button style={{ margin: 16 }}>+ New Chat</button>
-    </div>
-  );
-}
+//       <button style={{ marginTop: 20, width: "100%" }}>
+//         + New Chat
+//       </button>
+//     </div>
+//   );
+// }
 
-export default Sidebar;
+// export default Sidebar;
